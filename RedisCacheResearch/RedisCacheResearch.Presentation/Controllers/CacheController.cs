@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Runtime.CompilerServices;
+using Microsoft.AspNetCore.Mvc;
+using RedisCacheResearch.Infrastructure.Redis.Options;
 using RedisCacheResearch.Presentation.Controllers.Contracts;
 using RedisCacheResearch.Presentation.Controllers.Contracts.GetValue;
 using RedisCacheResearch.Presentation.Controllers.Contracts.Write;
@@ -10,20 +12,36 @@ namespace RedisCacheResearch.Presentation.Controllers;
 public class CacheController : ControllerBase
 {
     private readonly ConnectionMultiplexer _redis;
+    private readonly RedisClusterConfiguration _clusterConfiguration;
     private readonly ILogger<CacheController> _logger;
 
-    public CacheController(ILogger<CacheController> logger)
+    public CacheController(RedisClusterConfiguration clusterConfiguration, ILogger<CacheController> logger)
     {
-        //("server1:6381, server2:6382, server3:6383, server4:6384, server5:6385, server6:6386");
-        _redis = ConnectionMultiplexer.Connect("localhost:6379");
+        _clusterConfiguration = clusterConfiguration;
+        _redis = ConnectionMultiplexer.Connect(_clusterConfiguration.GetShardConnectionString(1));
         _logger = logger;
     }
 
-    [HttpGet(nameof(GetFromRedis))]
-    public async Task<GetValueFromRedisResponse> GetFromRedis([FromQuery]GetValueFromRedisQuery query, CancellationToken cancellationToken)
+    [HttpGet(nameof(GetAllFromShard))]
+    public async IAsyncEnumerable<string> GetAllFromShard([FromQuery] int shardNumber,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await using var redis =
+            await ConnectionMultiplexer.ConnectAsync(_clusterConfiguration.GetShardConnectionString(shardNumber));
+        var redisDb = redis.GetDatabase();
+
+        foreach (var num in Enumerable.Range(0, 128))
+        {
+            yield return await redisDb.StringGetAsync(num.ToString());
+        }
+    }
+
+    [HttpGet(nameof(Get))]
+    public async Task<GetValueFromRedisResponse> Get([FromQuery] GetValueFromRedisQuery query,
+        CancellationToken cancellationToken)
     {
         var redisDb = _redis.GetDatabase();
-        
+
         var result = await redisDb.StringGetAsync(query.Key.ToString());
 
         return new GetValueFromRedisResponse(result.ToString());
@@ -33,7 +51,7 @@ public class CacheController : ControllerBase
     public async Task<WriteToRedisResponse> WriteToRedis(WriteToRedisQuery query, CancellationToken cancellationToken)
     {
         var redisDb = _redis.GetDatabase();
-        
+
         await redisDb.StringSetAsync(query.Key.ToString(), query.Value);
 
         return new WriteToRedisResponse();

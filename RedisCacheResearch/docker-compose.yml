@@ -1,0 +1,43 @@
+version: '3.3'
+
+services:
+  redis1:
+    image: redis:latest
+    ports:
+      - "127.0.0.1:6381:6379"
+    volumes:
+      - ./volumes/cluster/redis_1_data:/data
+  redis2:
+    image: redis:latest
+    ports:
+      - "127.0.0.1:6382:6379"
+    volumes:
+      - ./volumes/cluster/redis_2_data:/data
+  redis3:
+    image: redis:latest
+    restart: always
+    ports:
+      - "127.0.0.1:6383:6379"
+    volumes:
+      - ./volumes/cluster/redis_3_data:/data
+  redis4:
+    image: redis:latest
+    restart: always
+    ports:
+      - "127.0.0.1:6384:6379"
+    volumes:
+      - ./volumes/cluster/redis_4_data:/data
+  redis5:
+    image: redis:latest
+    restart: always
+    ports:
+      - "127.0.0.1:6385:6379"
+    volumes:
+      - ./volumes/cluster/redis_5_data:/data
+  redis6:
+    image: redis:latest
+    restart: always
+    ports:
+      - "127.0.0.1:6386:6379"
+    volumes:
+      - ./volumes/cluster/redis_6_data:/data
